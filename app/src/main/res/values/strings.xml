@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">MusicPlayer</string>
+    <string name="btn_last">上一曲</string>
+    <string name="btn_start">开始</string>
+    <string name="btn_stop">停止</string>
+    <string name="btn_next">下一曲</string>
+</resources>
