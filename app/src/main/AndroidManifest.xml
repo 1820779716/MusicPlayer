@@ -23,18 +23,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <service
-            android:name=".MusicReceiverService"
-            android:enabled="true" >
-            <intent-filter>
-                <action android:name="com.homer.service.musicReceiverService" />
-            </intent-filter>
-        </service>
-        <receiver android:name=".MusicReceiver" >
-            <intent-filter>
-                <action android:name="com.homer.receiver.musicReceiver" />
-            </intent-filter>
-        </receiver>
+        <service android:name=".MusicService" android:enabled="true" android:exported="true"/>
     </application>
 
 </manifest>
