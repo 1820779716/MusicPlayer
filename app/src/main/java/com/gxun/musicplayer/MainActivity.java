@@ -31,23 +31,21 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private TextView musicCurrentTimeTv, musicTotalTimeTv, musicInfoTv;
     private Button startBtn, stopBtn, nextBtn, lastBtn;
 
-    private Handler handler; // 处理改变进度条事件
-
     private final int RW_PERMISSION = 600; // 权限申请码
 
-    //广播接收器
+    // 广播接收器
     ActivityReceiver activityReceiver;
-    //定义控制动作、更新动作
-    public static final String CTRL_ACTION = "com.gxun.musicplayer.CTRL_ACTION";
-    public static final String UPDATE_ACTION = "com.gxun.musicplayer.UPDATE_ACTION";
-    public static final String CURRENT_POSITION_ACTION = "com.gxun.musicplayer.DURATION_ACTION";
-    public static final String SEEKBAR_PROGRESS_ACTION = "com.gxun.musicplayer.SEEKBAR_PROGRESS_ACTION";
-    public static final String CLICKITEM_ACTION = "com.gxun.musicplayer.CLICKITEM_ACTION";
+    // 定义Service动作
+    public static final String CTRL_ACTION = "com.gxun.musicplayer.CTRL_ACTION"; // 控制播放
+    public static final String UPDATE_ACTION = "com.gxun.musicplayer.UPDATE_ACTION"; // 更新播放信息
+    public static final String CURRENT_POSITION_ACTION = "com.gxun.musicplayer.DURATION_ACTION"; // 获取播放进度信息
+    public static final String SEEKBAR_PROGRESS_ACTION = "com.gxun.musicplayer.SEEKBAR_PROGRESS_ACTION"; // 调节进度条时向Service发送进度
+    public static final String CLICKITEM_ACTION = "com.gxun.musicplayer.CLICKITEM_ACTION"; // 点击ListView的item
 
-    // 定义音乐的播放状态，stop代表没有播放，playing代表正在播放，pause代表暂停
+    // 定义音乐的播放状态，playing代表正在播放，pause代表暂停，stop代表没有播放
     String status = "stop";
-
-    int currentPosition, musicMaxTime;
+    // 当前音乐进度位置、音乐总时间
+    int currentPosition, musicTotalTime;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -114,7 +112,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) { // 用于监听SeekBar进度值的改变
                 if (fromUser){
-                    int seekBarMax = seekBar.getMax();
+                    int seekBarMax = seekBar.getMax(); // 获取进度条长度
                     sendProgress(progress, seekBarMax);
                 }
             }
@@ -179,8 +177,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     // 初始化进度条
     void initialSeekBar() {
-        musicCurrentTimeTv.setText("00:00");
-        musicTotalTimeTv.setText("00:00");
+        String s = "00:00";
+        musicCurrentTimeTv.setText(s);
+        musicTotalTimeTv.setText(s);
         seekBar.setProgress(0); // 进度条置0
     }
 
@@ -205,7 +204,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         String currentTime = (pMinutes < 10 ? "0" + pMinutes : pMinutes) + ":"
                 + (position < 10 ? "0" + position : position);
         musicCurrentTimeTv.setText(currentTime);
-        seekBar.setProgress(currentPosition * seekBar.getMax() / musicMaxTime);
+        seekBar.setProgress(currentPosition * seekBar.getMax() / musicTotalTime);
     }
 
     //自定义BroadcastReceiver，负责监听从Service传回来的广播
@@ -214,26 +213,27 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         public void onReceive(Context context, Intent intent) {
             switch (intent.getAction()){
                 case UPDATE_ACTION:
-                    updateStatus(intent);
+                    updateStatus(intent); // 更新状态信息、播放信息
                     break;
                 case CURRENT_POSITION_ACTION:
-                    updateSeekBar(intent);
+                    updateSeekBar(intent); // 更新进度条
                     break;
             }
         }
+
         public void updateStatus(Intent intent){
             // 获取Intent中的newStatus（新的播放状态）
             String newStatus = intent.getStringExtra("newStatus");
             // 获取Intent中的musicName（当前播放的歌曲名）
             String musicName = intent.getStringExtra("musicName");
-            musicMaxTime = intent.getIntExtra("maxTime", 0);
+            musicTotalTime = intent.getIntExtra("musicTotalTime", 0);
             String musicInfo = "";
             switch (newStatus) {
                 case "stop": // 无播放状态
                     startBtn.setText("开始");
                     musicInfo = "当前无播放";
-                    initialSeekBar();
                     status = newStatus;
+                    initialSeekBar();
                     break;
                 case "playing": // 正在播放状态
                     startBtn.setText("暂停");
@@ -247,7 +247,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     break;
             }
             musicInfoTv.setText(musicInfo);
-            setTotalTime(musicMaxTime/1000); // 广播返回的为ms，需转换为s
+            setTotalTime(musicTotalTime/1000); // 广播返回的为ms，需转换为s
         }
 
         public void updateSeekBar(Intent intent){

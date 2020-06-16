@@ -42,7 +42,7 @@ public class MusicService extends Service {
         IntentFilter filter = new IntentFilter();
         filter.addAction(MainActivity.CTRL_ACTION); // 控制动作
         filter.addAction(MainActivity.SEEKBAR_PROGRESS_ACTION); // 进度条动作
-        filter.addAction(MainActivity.CLICKITEM_ACTION);
+        filter.addAction(MainActivity.CLICKITEM_ACTION); // 点击ListView的item
         registerReceiver(musicServiceReceiver, filter);
 
         musicList = new MusicScanner().getMusicList(); // 获得mp3文件路径
@@ -54,7 +54,7 @@ public class MusicService extends Service {
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
-                if(player.isPlaying()){
+                if (player != null && player.isPlaying()) {
                     sendCurrentPosition();
                 }
             }
@@ -65,7 +65,7 @@ public class MusicService extends Service {
     public class MusicServiceReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            switch (intent.getAction()){
+            switch (intent.getAction()) {
                 case MainActivity.CTRL_ACTION:
                     receiveCtrl(intent);
                     break;
@@ -73,22 +73,22 @@ public class MusicService extends Service {
                     setProgress(intent);
                     break;
                 case MainActivity.CLICKITEM_ACTION:
-                    musicNum = intent.getIntExtra("musicNum", -1);
+                    musicNum = intent.getIntExtra("musicNum", -1); // 获取ListView点击的Item的位置
                     play();
                     sendUpdateIntent();
                     break;
             }
         }
 
-        public void receiveCtrl(Intent intent){
-            int control = intent.getIntExtra("control",-1);
-            switch (control){ // 控制状态：播放、暂停、停止、上一曲、下一曲
+        public void receiveCtrl(Intent intent) {
+            int control = intent.getIntExtra("control", -1);
+            switch (control) { // 控制状态：播放、暂停、停止、上一曲、下一曲
                 case 1:
-                    if(status.equals("stop")){ // 原来处于没有播放状态,准备并播放音乐
+                    if (status.equals("stop")) { // 原来处于没有播放状态,准备并播放音乐
                         play();
-                    } else if(status.equals("playing")){ // 原来处于播放状态，转为暂停
+                    } else if (status.equals("playing")) { // 原来处于播放状态，转为暂停
                         pause();
-                    } else if(status.equals("pause")){ // 原来处于暂停状态
+                    } else if (status.equals("pause")) { // 原来处于暂停状态
                         goPlay();
                     }
                     break;
@@ -105,28 +105,34 @@ public class MusicService extends Service {
             sendUpdateIntent();
         }
 
-        public void setProgress(Intent intent){
-            if (player!=null && player.isPlaying()){
-                int progress = intent.getIntExtra("Progress",-1);
+        public void setProgress(Intent intent) {
+            if (!status.equals("stop")) {
+                int progress = intent.getIntExtra("Progress", -1);
                 int seekBarMax = intent.getIntExtra("SeekBarMax", -1);
                 int musicMax = player.getDuration();
                 player.seekTo(musicMax * progress / seekBarMax);
-                sendCurrentPosition();
+                goPlay(); // 拖动进度条后会自动播放
+                sendUpdateIntent(); // 自动播放后状态改变，发送当前播放信息、状态信息
+                sendCurrentPosition(); // 发送当前进度
             }
         }
     }
 
-    public void sendUpdateIntent(){
+    public void sendUpdateIntent() {
         // 广播通知MainActivity音乐信息
         Intent updateIntent = new Intent(MainActivity.UPDATE_ACTION); // 指定更新动作
-        updateIntent.putExtra("newStatus",status); // 发送新状态
+        int musicTotalTime = 0; // 歌曲时长默认为0
+        updateIntent.putExtra("newStatus", status); // 发送新状态
         updateIntent.putExtra("musicName", musicName); // 发送音乐文件名
-        updateIntent.putExtra("maxTime", player.getDuration()); // 发送歌曲时长，时间为ms
+        if(!status.equals("stop")){ // 当前播放器不为停止状态，获取当前音乐总时长
+            musicTotalTime = player.getDuration();
+        }
+        updateIntent.putExtra("musicTotalTime", musicTotalTime); // 发送歌曲时长，时间为ms
         // 发送广播，将被MainActivity组件中的BroadcastReceiver接收
         sendBroadcast(updateIntent);
     }
 
-    public void sendCurrentPosition(){
+    public void sendCurrentPosition() {
         // 广播通知MainActivity当前进度
         Intent positionIntent = new Intent(MainActivity.CURRENT_POSITION_ACTION);
         positionIntent.putExtra("currentPosition", getCurrentProgress());
@@ -163,7 +169,7 @@ public class MusicService extends Service {
         }
     }
 
-    public void goPlay(){ //继续播放
+    public void goPlay() { //继续播放
         int position = getCurrentProgress();
         player.seekTo(position); // 设置当前MediaPlayer的播放位置，单位是毫秒。
         try {
@@ -176,9 +182,9 @@ public class MusicService extends Service {
     }
 
     public int getCurrentProgress() { // 获取当前进度
-        if (player != null & player.isPlaying()) { //当前正在播放歌曲，返回当前进度
+        if (status.equals("playing")) { // 当前正在播放歌曲，返回当前进度
             return player.getCurrentPosition();
-        } else if (player != null & (!player.isPlaying())) { //当前歌曲处于暂停状态，返回当前进度
+        } else if (status.equals("pause")) { // 当前歌曲处于暂停状态，返回当前进度
             return player.getCurrentPosition();
         }
         //无播放，进度为0
@@ -196,17 +202,17 @@ public class MusicService extends Service {
     }
 
     public void pause() { // 暂停播放
-        if (player != null && player.isPlaying()){
+        if (!status.equals("pause")) {
             player.pause();
             status = "pause"; // 状态改为暂停
         }
     }
 
-    public void stop() { //停止播放
-        if (player != null && player.isPlaying()) {
-            player.stop(); //停止播放
-            player.release();
-            musicNum = 0; //重置歌曲下标
+    public void stop() { // 停止播放
+        if (!status.equals("stop")) {
+            player.stop(); // 停止播放
+            player.reset(); // 重置多媒体对象
+            musicNum = 0; // 重置歌曲下标
             status = "stop"; // 状态设置为无播放状态
         }
     }
